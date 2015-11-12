@@ -47,10 +47,10 @@ import Data.Word
 import Network.Consul.Types
 import Network.HTTP.Client
 import Network.HTTP.Types
-import Network.Socket (PortNumber(..))
+import Network.Socket (PortNumber)
 
 createRequest :: MonadIO m => Text -> PortNumber -> Text -> Maybe Text -> Maybe ByteString -> Bool -> Maybe Datacenter -> m Request
-createRequest hostname (PortNum portNumber) endpoint query body wait dc = do
+createRequest hostname portNumber endpoint query body wait dc = do
   let baseUrl = T.concat ["http://",hostname,":",T.pack $ show portNumber,endpoint,needQueryString
                          ,maybe "" id query, prefixAnd, maybe "" (\ (Datacenter x) -> T.concat["dc=",x]) dc]
   initReq <- liftIO $ parseUrl $ T.unpack baseUrl
@@ -177,7 +177,7 @@ getHealthChecks  manager hostname portNumber dc = do
  -}
 
 registerHealthCheck :: MonadIO m => Manager -> Text -> PortNumber -> RegisterHealthCheck -> m ()
-registerHealthCheck manager hostname (PortNum portNumber) request = do
+registerHealthCheck manager hostname portNumber request = do
   initReq <- liftIO $ parseUrl $ T.unpack $ T.concat ["http://",hostname, ":", T.pack $ show portNumber ,"/v1/agent/check/register"]
   let httpReq = initReq { method = "PUT", requestBody = RequestBodyBS $ BL.toStrict $ encode request}
   liftIO $ withResponse httpReq manager $ \ response -> do
@@ -185,7 +185,7 @@ registerHealthCheck manager hostname (PortNum portNumber) request = do
     return ()
 
 deregisterHealthCheck :: MonadIO m => Manager -> Text -> PortNumber -> Text -> m ()
-deregisterHealthCheck manager hostname (PortNum portNumber) checkId = do
+deregisterHealthCheck manager hostname portNumber checkId = do
   initReq <- liftIO $ parseUrl $ T.unpack $ T.concat ["http://",hostname, ":", T.pack $ show portNumber ,"/v1/agent/check/deregister/", checkId]
   liftIO $ withResponse initReq manager $ \ response -> do
     _bodyParts <- brConsume $ responseBody response
@@ -193,21 +193,21 @@ deregisterHealthCheck manager hostname (PortNum portNumber) checkId = do
 
 
 passHealthCheck :: MonadIO m => Manager -> Text -> PortNumber -> Text -> m ()
-passHealthCheck manager hostname (PortNum portNumber) checkId = do
+passHealthCheck manager hostname portNumber checkId = do
   initReq <- liftIO $ parseUrl $ T.unpack $ T.concat ["http://",hostname, ":", T.pack $ show portNumber ,"/v1/agent/check/pass/", checkId]
   liftIO $ withResponse initReq manager $ \ response -> do
     _bodyParts <- brConsume $ responseBody response
     return ()
 
 warnHealthCheck :: MonadIO m => Manager -> Text -> PortNumber -> Text -> m ()
-warnHealthCheck manager hostname (PortNum portNumber) checkId = do
+warnHealthCheck manager hostname portNumber checkId = do
   initReq <- liftIO $ parseUrl $ T.unpack $ T.concat ["http://",hostname, ":", T.pack $ show portNumber ,"/v1/agent/check/warn/", checkId]
   liftIO $ withResponse initReq manager $ \ response -> do
     _bodyParts <- brConsume $ responseBody response
     return ()
 
 failHealthCheck :: MonadIO m => Manager -> Text -> PortNumber -> Text -> m ()
-failHealthCheck manager hostname (PortNum portNumber) checkId = do
+failHealthCheck manager hostname portNumber checkId = do
   initReq <- liftIO $ parseUrl $ T.unpack $ T.concat ["http://",hostname, ":", T.pack $ show portNumber ,"/v1/agent/check/fail/", checkId]
   liftIO $ withResponse initReq manager $ \ response -> do
     _bodyParts <- brConsume $ responseBody response
@@ -222,14 +222,14 @@ registerService manager hostname portNumber request dc = do
       _ -> return False
 
 deregisterService :: MonadIO m => Manager -> Text -> PortNumber -> Text -> m ()
-deregisterService manager hostname (PortNum portNumber) service = do
+deregisterService manager hostname portNumber service = do
   initReq <- liftIO $ parseUrl $ T.unpack $ T.concat ["http://",hostname, ":", T.pack $ show portNumber ,"/v1/agent/service/deregister/", service]
   liftIO $ withResponse initReq manager $ \ response -> do
     _bodyParts <- brConsume $ responseBody response
     return ()
 
 getSelf :: MonadIO m => Manager -> Text -> PortNumber -> m (Maybe Self)
-getSelf manager hostname (PortNum portNumber) = do
+getSelf manager hostname portNumber = do
   initReq <- liftIO $ parseUrl $ T.unpack $ T.concat ["http://",hostname, ":", T.pack $ show portNumber ,"/v1/agent/self"]
   liftIO $ withResponse initReq manager $ \ response -> do
     bodyParts <- brConsume $ responseBody response
@@ -239,7 +239,7 @@ getSelf manager hostname (PortNum portNumber) = do
 
 {- Health -}
 getServiceChecks :: MonadIO m => Manager -> Text -> PortNumber -> Text -> m [Check]
-getServiceChecks manager hostname (PortNum portNumber) name = do
+getServiceChecks manager hostname portNumber name = do
   initReq <- liftIO $ parseUrl $ T.unpack $ T.concat ["http://",hostname, ":", T.pack $ show portNumber ,"/v1/health/checks/", name]
   liftIO $ withResponse initReq manager $ \ response -> do
     bodyParts <- brConsume $ responseBody response
@@ -247,7 +247,7 @@ getServiceChecks manager hostname (PortNum portNumber) name = do
     return $ maybe [] id (decode $ BL.fromStrict body)
 
 getServiceHealth :: MonadIO m => Manager -> Text -> PortNumber -> Text -> m (Maybe Health)
-getServiceHealth manager hostname (PortNum portNumber) name = do
+getServiceHealth manager hostname portNumber name = do
   initReq <- liftIO $ parseUrl $ T.unpack $ T.concat ["http://",hostname, ":", T.pack $ show portNumber ,"/v1/health/service/", name]
   liftIO $ withResponse initReq manager $ \ response -> do
     bodyParts <- brConsume $ responseBody response
@@ -292,7 +292,7 @@ getSessionInfo manager hostname portNumber session dc = do
 
 {- Catalog -}
 getDatacenters :: MonadIO m => Manager -> Text -> PortNumber -> m [Datacenter]
-getDatacenters manager hostname (PortNum portNumber) = liftIO $ do
+getDatacenters manager hostname portNumber = liftIO $ do
   initReq <- parseUrl $ T.unpack $ T.concat ["http://",hostname, ":", T.pack $ show portNumber ,"/v1/catalog/datacenters/"]
   withResponse initReq manager $ \ response -> do
     bodyParts <- brConsume $ responseBody response
